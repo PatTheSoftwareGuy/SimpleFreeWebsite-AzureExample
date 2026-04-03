@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Chat Bubble Test Host</title>
+    <link rel="stylesheet" href="/static/chat-bubble.css" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: radial-gradient(circle at 20% 10%, #f2f9ff 0%, #deedfa 42%, #b8d6ee 100%);
+      }
+
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 48px 18px 120px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 2rem;
+        color: #0a3255;
+      }
+
+      p {
+        color: #234969;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Chat Bubble Test Host</h1>
+      <p>
+        This page simulates a normal website that embeds the widget bundle. Click the plane bubble in the
+        bottom-right corner to launch Agent Plane Talk.
+      </p>
+    </main>
+
+    <script src="/static/chat-bubble.iife.js"></script>
+    <script>
+      (function initWidget() {
+        function showError(message) {
+          var container = document.createElement("div");
+          container.style.position = "fixed";
+          container.style.left = "12px";
+          container.style.bottom = "12px";
+          container.style.zIndex = "2147483647";
+          container.style.background = "#fff4ce";
+          container.style.border = "1px solid #f1c21b";
+          container.style.padding = "10px 12px";
+          container.style.borderRadius = "8px";
+          container.style.maxWidth = "340px";
+          container.style.font = "13px Segoe UI, Tahoma, sans-serif";
+          container.textContent = message;
+          document.body.appendChild(container);
+        }
+
+        function mountBubble() {
+          if (!window.SimpleChatBubble || typeof window.SimpleChatBubble.mount !== "function") {
+            showError("Chat bubble script loaded, but mount API was not found.");
+            return;
+          }
+
+          try {
+            window.SimpleChatBubble.mount({
+              apiBaseUrl: window.location.origin,
+              title: "Agent Plane Talk"
+            });
+          } catch (error) {
+            showError("Chat bubble failed to initialize. Check browser console for details.");
+            console.error("Chat bubble init error", error);
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", mountBubble);
+        } else {
+          mountBubble();
+        }
+      })();
+    </script>
+  </body>
+</html>

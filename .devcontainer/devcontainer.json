@@ -1,0 +1,29 @@
+{
+  "name": "simple-chat-bubble-dev",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "25.9.0"
+    },
+    "ghcr.io/devcontainers/features/azure-cli:1": {
+      "version": "latest"
+    },
+        "ghcr.io/azure/azure-dev/azd:latest": {
+          "version": "latest"
+        },
+      "ghcr.io/devcontainers/features/powershell:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "echoapi.echoapi-for-vscode",
+        "ms-vscode.vscode-node-azure-pack",
+        "ms-vscode.azurecli",
+        "ms-azuretools.azure-dev"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}

@@ -1,0 +1,21 @@
+name: simple-chat-bubble
+metadata:
+  template: simple-chat-bubble@1.0.0
+
+infra:
+  provider: bicep
+  path: infra
+
+services:
+  web:
+    project: backend
+    host: appservice
+    language: py
+    resourceName: ${AZURE_WEBAPP_NAME}
+
+hooks:
+  prepackage:
+    posix:
+      shell: sh
+      run: ./scripts/build_frontend.sh
+      continueOnError: false
