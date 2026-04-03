@@ -5,6 +5,9 @@
     "location": {
       "value": "${AZURE_LOCATION}"
     },
+    "appServiceSkuName": {
+      "value": "${APP_SERVICE_SKU_NAME}"
+    },
     "aiHordeApiKey": {
       "value": "${AIHORDE_API_KEY}"
     }

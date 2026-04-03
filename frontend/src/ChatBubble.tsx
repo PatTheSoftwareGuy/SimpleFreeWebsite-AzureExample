@@ -16,9 +16,10 @@ export type WidgetMessage = {
 export type ChatBubbleProps = {
   apiBaseUrl: string;
   title?: string;
+  description?: string;
 };
 
-export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk" }: ChatBubbleProps) {
+export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description = "Aviation humor, clear skies, text-only comms." }: ChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [draft, setDraft] = useState("");
@@ -72,7 +73,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk" }: ChatBubbl
           <section className="chatbubble-panel" aria-label="AI Chat">
             <header className="chatbubble-header">
               <p className="chatbubble-header-title">{title}</p>
-              <p className="chatbubble-header-subtitle">Aviation humor, clear skies, text-only comms.</p>
+              <p className="chatbubble-header-subtitle">{description}</p>
             </header>
 
             <div className="chatbubble-log">

@@ -58,6 +58,7 @@
 
 .chatbubble-header-title {
   margin: 0;
+  color:#f4f9ff;
   font-size: 16px;
   font-weight: 700;
 }
@@ -66,6 +67,7 @@
   margin: 4px 0 0;
   font-size: 12px;
   opacity: 0.92;
+  color:#f4f9ff;
 }
 
 .chatbubble-log {

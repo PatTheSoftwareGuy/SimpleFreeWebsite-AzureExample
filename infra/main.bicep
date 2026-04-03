@@ -9,6 +9,14 @@ param appName string = 'chatbubble-${uniqueString(resourceGroup().id)}'
 @description('App Service plan name.')
 param appServicePlanName string = '${appName}-plan'
 
+@description('App Service plan SKU. Allowed values: F1 (Free) or B1/B3 (Basic).')
+@allowed([
+  'F1'
+  'B1'
+  'B3'
+])
+param appServiceSkuName string 
+
 @description('User Assigned Managed Identity name for GitHub Actions deployments.')
 param githubDeployIdentityName string = '${appName}-gha-mi'
 
@@ -25,16 +33,20 @@ param githubBranch string = 'main'
 @secure()
 param aiHordeApiKey string
 
+@description('AI Horde model identifier used by the chat backend.')
+param aiHordeModel string = 'koboldcpp/LFM2.5-1.2B-Instruct'
+
 var enableGithubFederation = !empty(githubOrg) && !empty(githubRepo)
+var appServiceSkuTier = appServiceSkuName == 'F1' ? 'Free' : 'Basic'
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: appServicePlanName
   location: location
   kind: 'linux'
   sku: {
-    name: 'F1'
-    tier: 'Free'
-    size: 'F1'
+    name: appServiceSkuName
+    tier: appServiceSkuTier
+    size: appServiceSkuName
     capacity: 1
   }
   properties: {
@@ -87,8 +99,8 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
           value: 'https://oai.aihorde.net/v1'
         }
         {
-          name: 'PROMPTY_PATH'
-          value: '/home/site/wwwroot/prompts/agent-plane-talk.prompty'
+          name: 'AIHORDE_MODEL'
+          value: aiHordeModel
         }
       ]
     }
@@ -98,6 +110,8 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
 
 output AZURE_WEBAPP_NAME string = webApp.name
 output AZURE_WEBAPP_URL string = 'https://${webApp.properties.defaultHostName}'
+output AIHORDE_MODEL string = aiHordeModel
 output GITHUB_DEPLOY_MANAGED_IDENTITY_CLIENT_ID string = githubDeployIdentity.properties.clientId
 output GITHUB_DEPLOY_MANAGED_IDENTITY_PRINCIPAL_ID string = githubDeployIdentity.properties.principalId
 output GITHUB_DEPLOY_MANAGED_IDENTITY_RESOURCE_ID string = githubDeployIdentity.id
+output APP_SERVICE_SKU_NAME string = appServiceSkuName

@@ -7,6 +7,7 @@ export type MountOptions = {
   container?: HTMLElement;
   apiBaseUrl?: string;
   title?: string;
+  description?: string;
 };
 
 let widgetRoot: Root | null = null;
@@ -22,6 +23,7 @@ export function mount(options: MountOptions = {}): void {
       <ChatBubble
         apiBaseUrl={options.apiBaseUrl ?? window.location.origin}
         title={options.title ?? "Agent Plane Talk"}
+        description={options.description ?? "Aviation humor, clear skies, text-only comms."}
       />
     </React.StrictMode>,
   );

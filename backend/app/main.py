@@ -29,7 +29,27 @@ class ChatResponse(BaseModel):
 
 
 def _load_agent_prompt() -> str:
-    prompty_path = Path(os.getenv("PROMPTY_PATH", Path(__file__).resolve().parents[1] / "prompts" / "agent-plane-talk.prompty"))
+    app_root = Path(__file__).resolve().parents[1]
+    default_path = app_root / "prompts" / "agent-plane-talk.prompty"
+
+    configured_path = os.getenv("PROMPTY_PATH")
+    candidates: list[Path] = []
+
+    if configured_path:
+        env_path = Path(configured_path)
+        if env_path.is_absolute():
+            candidates.append(env_path)
+        else:
+            candidates.append(app_root / env_path)
+            candidates.append(Path.cwd() / env_path)
+
+    candidates.append(default_path)
+
+    prompty_path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if prompty_path is None:
+        checked_paths = ", ".join(str(candidate) for candidate in candidates)
+        raise RuntimeError(f"Unable to locate prompty file. Checked: {checked_paths}")
+
     profile = load_prompty(prompty_path)
     return profile.system_prompt
 
@@ -71,7 +91,8 @@ def health() -> dict[str, str]:
 def chat(request: ChatRequest) -> ChatResponse:
     try:
         client = _build_client()
-        model = os.getenv("AIHORDE_MODEL", "openai/gpt-oss-20b")
+        configured_model = os.getenv("AIHORDE_MODEL")
+        model = configured_model.strip() if configured_model and configured_model.strip().lower() != "none" else "openai/gpt-oss-20b"
         system_prompt = _load_agent_prompt()
 
         outbound_messages = [{"role": "system", "content": system_prompt}]

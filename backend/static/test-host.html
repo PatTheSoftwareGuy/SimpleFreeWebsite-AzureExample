@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simple Chat Bubble Test Host</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="stylesheet" href="/static/chat-bubble.css" />
     <style>
       body {
@@ -68,7 +69,8 @@
           try {
             window.SimpleChatBubble.mount({
               apiBaseUrl: window.location.origin,
-              title: "Agent Plane Talk"
+              title: "Agent Plane Talk",
+              description:"Aviation humor, clear skies, text-only comms."
             });
           } catch (error) {
             showError("Chat bubble failed to initialize. Check browser console for details.");

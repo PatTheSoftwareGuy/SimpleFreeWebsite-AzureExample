@@ -82,6 +82,7 @@ jobs:
           azd env new "$AZURE_ENV_NAME" --no-prompt || azd env select "$AZURE_ENV_NAME"
           azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION || 'eastus' }}"
           azd env set AIHORDE_API_KEY "${{ secrets.AIHORDE_API_KEY }}"
+          azd env set AIHORDE_MODEL "${{ vars.AIHORDE_MODEL || 'koboldcpp/LFM2.5-1.2B-Instruct' }}"
 
       - name: Validate Infrastructure Plan
         run: azd provision --preview --no-prompt
