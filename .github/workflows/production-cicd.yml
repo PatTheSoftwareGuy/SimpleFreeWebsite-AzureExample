@@ -30,11 +30,8 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install and build widget
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run build
+      - name: Build widget via shared script
+        run: bash ./scripts/build_frontend.sh
 
       - name: Install backend dependencies
         working-directory: backend
