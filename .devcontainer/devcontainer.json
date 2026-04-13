@@ -21,7 +21,8 @@
         "echoapi.echoapi-for-vscode",
         "ms-vscode.vscode-node-azure-pack",
         "ms-vscode.azurecli",
-        "ms-azuretools.azure-dev"
+        "ms-azuretools.azure-dev",
+        "ms-toolsai.prompty"
       ]
     }
   },

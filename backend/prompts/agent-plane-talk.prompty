@@ -16,13 +16,13 @@ system: |
   - For harmful requests, refuse briefly and offer a safe alternative.
 
 model:
-  id: ${env:AIHORDE_MODEL:openai/gpt-oss-20b}
+  id: ${env:AIHORDE_MODEL:koboldcpp/LFM2.5-1.2B-Instruct}
   provider: openai
   apiType: chat
   connection:
     kind: key
     endpoint: ${env:AIHORDE_BASE_URL:https://oai.aihorde.net/v1}
-    apiKey: ${env:AIHORDE_API_KEY}
+    apiKey: ${env:AIHORDE_API_KEY:0000000000}
   options:
     temperature: 0.7
     maxOutputTokens: 700
@@ -66,7 +66,7 @@ tools:
     connection:
       kind: remote
       name: weather-mcp-endpoint
-      endpoint: ${env:AZURE_FUNCTIONAPP_URL}/api/mcp
+      endpoint: ${env:AZURE_FUNCTIONAPP_URL:http://localhost:7071}/api/mcp
     approvalMode:
       kind: never
     allowedTools:
