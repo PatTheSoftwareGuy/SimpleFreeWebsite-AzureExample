@@ -88,6 +88,7 @@ Set required azd environment values:
 azd env new production
 azd env set AZURE_LOCATION eastus
 azd env set AIHORDE_API_KEY "your_ai_horde_key"
+azd env set LATLNG_API_KEY "your_latlng_server_key"
 azd env set APP_SERVICE_SKU_NAME "F1"
 ```
 

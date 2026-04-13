@@ -31,7 +31,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
   ]);
 
   const canSend = draft.trim().length > 0 && !isBusy;
-  const endpoint = useMemo(() => `${apiBaseUrl.replace(/\/$/, "")}/api/chat`, [apiBaseUrl]);
+  const streamEndpoint = useMemo(() => `${apiBaseUrl.replace(/\/$/, "")}/api/chat/stream`, [apiBaseUrl]);
 
   async function sendMessage() {
     const text = draft.trim();
@@ -45,7 +45,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
     setIsBusy(true);
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(streamEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: nextMessages }),
@@ -55,8 +55,94 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
         throw new Error(`Chat request failed with status ${response.status}`);
       }
 
-      const payload: { assistant_message: string } = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: payload.assistant_message }]);
+      const contentType = response.headers.get("content-type") ?? "";
+      const isEventStream = contentType.includes("text/event-stream");
+      if (!isEventStream || !response.body) {
+        const payload: { assistant_message: string } = await response.json();
+        setMessages((prev) => [...prev, { role: "assistant", content: payload.assistant_message }]);
+        return;
+      }
+
+      let assistantIndex = -1;
+      setMessages((prev) => {
+        assistantIndex = prev.length;
+        return [...prev, { role: "assistant", content: "" }];
+      });
+
+      const appendAssistantText = (delta: string) => {
+        if (!delta) {
+          return;
+        }
+        setMessages((prev) => {
+          if (assistantIndex < 0 || assistantIndex >= prev.length) {
+            return prev;
+          }
+
+          const next = [...prev];
+          const current = next[assistantIndex];
+          next[assistantIndex] = { role: "assistant", content: `${current.content}${delta}` };
+          return next;
+        });
+      };
+
+      const setAssistantText = (text: string) => {
+        setMessages((prev) => {
+          if (assistantIndex < 0 || assistantIndex >= prev.length) {
+            return prev;
+          }
+
+          const next = [...prev];
+          next[assistantIndex] = { role: "assistant", content: text };
+          return next;
+        });
+      };
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary >= 0) {
+          const rawEvent = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+
+          let eventType = "message";
+          let eventData = "";
+          for (const line of rawEvent.split(/\r?\n/)) {
+            if (line.startsWith("event:")) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              eventData += line.slice(5).trim();
+            }
+          }
+
+          if (eventData) {
+            const payload = JSON.parse(eventData) as {
+              content?: string;
+              assistant_message?: string;
+              message?: string;
+            };
+
+            if (eventType === "delta" && typeof payload.content === "string") {
+              appendAssistantText(payload.content);
+            } else if (eventType === "done" && typeof payload.assistant_message === "string") {
+              setAssistantText(payload.assistant_message);
+            } else if (eventType === "error") {
+              throw new Error(payload.message ?? "Chat stream failed.");
+            }
+          }
+
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
     } catch (error) {
       const fallback = "The tower lost radio contact. Please retry this transmission.";
       console.error(error);
@@ -77,11 +163,19 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
             </header>
 
             <div className="chatbubble-log">
-              {messages.map((item, index) => (
-                <article key={`${item.role}-${index}`} className={`chatbubble-message ${item.role}`}>
-                  {item.content}
-                </article>
-              ))}
+              {messages.map((item, index) => {
+                const isEmptyAssistantPlaceholder =
+                  item.role === "assistant" && item.content.trim().length === 0;
+                if (isEmptyAssistantPlaceholder) {
+                  return null;
+                }
+
+                return (
+                  <article key={`${item.role}-${index}`} className={`chatbubble-message ${item.role}`}>
+                    {item.content}
+                  </article>
+                );
+              })}
               {isBusy && (
                 <div className="chatbubble-message assistant">
                   <Spinner size="tiny" labelPosition="after">

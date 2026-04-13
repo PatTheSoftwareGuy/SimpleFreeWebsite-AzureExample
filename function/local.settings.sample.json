@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "LATLNG_API_KEY": "latlng_your_server_key_here",
+    "LATLNG_BASE_URL": "https://api.latlng.work/api",
+    "NWS_USER_AGENT": "simple-chat-bubble-weather-mcp/1.0 (contact: you@example.com)"
+  }
+}

@@ -1,0 +1,405 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "15425399260464657372"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "[format('chatbubble-{0}', uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "App Service app name. Must be globally unique."
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-func', parameters('appName'))]",
+      "metadata": {
+        "description": "Function App name. Must be globally unique."
+      }
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-plan', parameters('appName'))]",
+      "metadata": {
+        "description": "App Service plan name."
+      }
+    },
+    "functionAppServicePlanName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-plan', parameters('functionAppName'))]",
+      "metadata": {
+        "description": "Function App Service plan name used when SKU is F1."
+      }
+    },
+    "appServiceSkuName": {
+      "type": "string",
+      "allowedValues": [
+        "F1",
+        "B1",
+        "B3"
+      ],
+      "metadata": {
+        "description": "App Service plan SKU. Allowed values: F1 (Free) or B1/B3 (Basic)."
+      }
+    },
+    "githubDeployIdentityName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-gha-mi', parameters('appName'))]",
+      "metadata": {
+        "description": "User Assigned Managed Identity name for GitHub Actions deployments."
+      }
+    },
+    "githubOrg": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub organization or user name that owns the repository."
+      }
+    },
+    "githubRepo": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub repository name for workload identity federation."
+      }
+    },
+    "githubBranch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "GitHub branch allowed to request OIDC tokens for deployment."
+      }
+    },
+    "aiHordeApiKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "AI Horde API key passed to the app as an environment variable."
+      }
+    },
+    "aiHordeModel": {
+      "type": "string",
+      "defaultValue": "koboldcpp/LFM2.5-1.2B-Instruct",
+      "metadata": {
+        "description": "AI Horde model identifier used by the chat backend."
+      }
+    },
+    "latLngApiKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "LatLng API key used by the weather MCP Function app."
+      }
+    },
+    "latLngBaseUrl": {
+      "type": "string",
+      "defaultValue": "https://api.latlng.work/api",
+      "metadata": {
+        "description": "LatLng API base URL for forward geocoding requests."
+      }
+    },
+    "nwsUserAgent": {
+      "type": "string",
+      "defaultValue": "simple-chat-bubble-weather-mcp/1.0 (contact: admin@example.com)",
+      "metadata": {
+        "description": "User-Agent header used when calling weather.gov."
+      }
+    }
+  },
+  "variables": {
+    "enableGithubFederation": "[and(not(empty(parameters('githubOrg'))), not(empty(parameters('githubRepo'))))]",
+    "isFreeSku": "[equals(parameters('appServiceSkuName'), 'F1')]",
+    "appServiceSkuTier": "[if(equals(parameters('appServiceSkuName'), 'F1'), 'Free', 'Basic')]",
+    "functionStorageName": "[format('st{0}', uniqueString(resourceGroup().id, parameters('functionAppName')))]",
+    "storageBlobDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "storageQueueDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')]",
+    "storageTableDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')]",
+    "storageFileDataPrivilegedContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '69566ab7-960f-475b-8e7c-b3118f30c6bd')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-04-01",
+      "name": "[parameters('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "[parameters('appServiceSkuName')]",
+        "tier": "[variables('appServiceSkuTier')]",
+        "size": "[parameters('appServiceSkuName')]",
+        "capacity": 1
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "condition": "[variables('isFreeSku')]",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-04-01",
+      "name": "[parameters('functionAppServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "[parameters('appServiceSkuName')]",
+        "tier": "[variables('appServiceSkuTier')]",
+        "size": "[parameters('appServiceSkuName')]",
+        "capacity": 1
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[parameters('githubDeployIdentityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "condition": "[variables('enableGithubFederation')]",
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}/{1}', parameters('githubDeployIdentityName'), 'github-main')]",
+      "properties": {
+        "issuer": "https://token.actions.githubusercontent.com",
+        "audiences": [
+          "api://AzureADTokenExchange"
+        ],
+        "subject": "[format('repo:{0}/{1}:ref:refs/heads/{2}', parameters('githubOrg'), parameters('githubRepo'), parameters('githubBranch'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('githubDeployIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-04-01",
+      "name": "[parameters('appName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.13",
+          "alwaysOn": false,
+          "appCommandLine": "gunicorn --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:8000 app.main:app",
+          "appSettings": [
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "WEBSITES_PORT",
+              "value": "8000"
+            },
+            {
+              "name": "AIHORDE_API_KEY",
+              "value": "[parameters('aiHordeApiKey')]"
+            },
+            {
+              "name": "AIHORDE_BASE_URL",
+              "value": "https://oai.aihorde.net/v1"
+            },
+            {
+              "name": "AIHORDE_MODEL",
+              "value": "[parameters('aiHordeModel')]"
+            }
+          ]
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('functionStorageName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-04-01",
+      "name": "[parameters('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[if(variables('isFreeSku'), resourceId('Microsoft.Web/serverfarms', parameters('functionAppServicePlanName')), resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName')))]",
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.13",
+          "cors": {
+            "allowedOrigins": [
+              "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('appName')), '2024-04-01').defaultHostName)]",
+              "https://portal.azure.com"
+            ]
+          },
+          "appSettings": [
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "python"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "AzureWebJobsStorage__accountName",
+              "value": "[variables('functionStorageName')]"
+            },
+            {
+              "name": "AzureWebJobsStorage__credential",
+              "value": "managedidentity"
+            },
+            {
+              "name": "LATLNG_API_KEY",
+              "value": "[parameters('latLngApiKey')]"
+            },
+            {
+              "name": "LATLNG_BASE_URL",
+              "value": "[parameters('latLngBaseUrl')]"
+            },
+            {
+              "name": "NWS_USER_AGENT",
+              "value": "[parameters('nwsUserAgent')]"
+            }
+          ]
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', parameters('functionAppServicePlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]",
+        "[resourceId('Microsoft.Web/sites', parameters('appName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), variables('storageBlobDataContributorRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2024-04-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), variables('storageQueueDataContributorRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageQueueDataContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2024-04-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), variables('storageTableDataContributorRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageTableDataContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2024-04-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName')), resourceId('Microsoft.Web/sites', parameters('functionAppName')), variables('storageFileDataPrivilegedContributorRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageFileDataPrivilegedContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2024-04-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('functionStorageName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "AZURE_WEBAPP_NAME": {
+      "type": "string",
+      "value": "[parameters('appName')]"
+    },
+    "AZURE_WEBAPP_URL": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('appName')), '2024-04-01').defaultHostName)]"
+    },
+    "AZURE_FUNCTIONAPP_NAME": {
+      "type": "string",
+      "value": "[parameters('functionAppName')]"
+    },
+    "AZURE_FUNCTIONAPP_URL": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2024-04-01').defaultHostName)]"
+    },
+    "AIHORDE_MODEL": {
+      "type": "string",
+      "value": "[parameters('aiHordeModel')]"
+    },
+    "GITHUB_DEPLOY_MANAGED_IDENTITY_CLIENT_ID": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('githubDeployIdentityName')), '2023-01-31').clientId]"
+    },
+    "GITHUB_DEPLOY_MANAGED_IDENTITY_PRINCIPAL_ID": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('githubDeployIdentityName')), '2023-01-31').principalId]"
+    },
+    "GITHUB_DEPLOY_MANAGED_IDENTITY_RESOURCE_ID": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('githubDeployIdentityName'))]"
+    },
+    "APP_SERVICE_SKU_NAME": {
+      "type": "string",
+      "value": "[parameters('appServiceSkuName')]"
+    }
+  }
+}

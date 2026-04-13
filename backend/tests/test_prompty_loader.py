@@ -9,3 +9,8 @@ def test_load_prompty_reads_name_and_prompt() -> None:
 
     assert profile.name == "Agent Plane Talk"
     assert "aviation" in profile.system_prompt.lower()
+    assert profile.model["provider"] == "openai"
+    assert profile.model["api_type"] == "chat"
+    assert profile.max_iterations == 8
+    assert len(profile.few_shot_messages) >= 2
+    assert any(tool["function"]["name"] == "lookup_aviation_term" for tool in profile.tools)
