@@ -8,6 +8,7 @@ export type MountOptions = {
   apiBaseUrl?: string;
   title?: string;
   description?: string;
+  historyLimit?: number;
 };
 
 let widgetRoot: Root | null = null;
@@ -24,6 +25,7 @@ export function mount(options: MountOptions = {}): void {
         apiBaseUrl={options.apiBaseUrl ?? window.location.origin}
         title={options.title ?? "Agent Plane Talk"}
         description={options.description ?? "Aviation humor, clear skies, text-only comms."}
+        historyLimit={options.historyLimit}
       />
     </React.StrictMode>,
   );

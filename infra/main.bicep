@@ -42,12 +42,11 @@ param aiHordeApiKey string
 @description('AI Horde model identifier used by the chat backend.')
 param aiHordeModel string = 'koboldcpp/LFM2.5-1.2B-Instruct'
 
-@description('LatLng API key used by the Weather MCP Web App.')
-@secure()
-param weatherLatLngApiKey string
+@description('Nominatim base URL used by the Weather MCP Web App for forward geocoding requests.')
+param nominatimBaseUrl string = 'https://nominatim.openstreetmap.org/search'
 
-@description('LatLng API base URL for forward geocoding requests.')
-param latLngBaseUrl string = 'https://api.latlng.work/api'
+@description('User-Agent header used when calling Nominatim.')
+param nominatimUserAgent string = 'simple-chat-bubble-weather-mcp/1.0'
 
 @description('User-Agent header used when calling weather.gov.')
 param nwsUserAgent string = 'simple-chat-bubble-weather-mcp/1.0 (contact: admin@example.com)'
@@ -166,12 +165,12 @@ resource weatherWebApp 'Microsoft.Web/sites@2024-04-01' = {
           value: '8000'
         }
         {
-          name: 'LATLNG_API_KEY'
-          value: weatherLatLngApiKey
+          name: 'NOMINATIM_BASE_URL'
+          value: nominatimBaseUrl
         }
         {
-          name: 'LATLNG_BASE_URL'
-          value: latLngBaseUrl
+          name: 'NOMINATIM_USER_AGENT'
+          value: nominatimUserAgent
         }
         {
           name: 'NWS_USER_AGENT'

@@ -10,9 +10,6 @@
     },
     "aiHordeApiKey": {
       "value": "${AIHORDE_API_KEY}"
-    },
-    "weatherLatLngApiKey": {
-      "value": "${LATLNG_API_KEY}"
     }
   }
 }

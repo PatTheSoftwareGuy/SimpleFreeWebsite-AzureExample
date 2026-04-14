@@ -1,8 +1,8 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "LATLNG_API_KEY": "latlng_your_server_key_here",
-    "LATLNG_BASE_URL": "https://api.latlng.work/api",
+    "NOMINATIM_BASE_URL": "https://nominatim.openstreetmap.org/search",
+    "NOMINATIM_USER_AGENT": "simple-chat-bubble-weather-mcp/1.0",
     "NWS_USER_AGENT": "simple-chat-bubble-weather-mcp/1.0 (contact: you@example.com)"
   }
 }

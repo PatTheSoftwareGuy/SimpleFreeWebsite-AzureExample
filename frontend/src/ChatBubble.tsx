@@ -17,9 +17,24 @@ export type ChatBubbleProps = {
   apiBaseUrl: string;
   title?: string;
   description?: string;
+  historyLimit?: number;
 };
 
-export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description = "Aviation humor, clear skies, text-only comms." }: ChatBubbleProps) {
+function resolveHistoryLimit(value: number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+
+  const raw = import.meta.env.VITE_CHAT_HISTORY_LIMIT;
+  const parsed = Number.parseInt(String(raw ?? ""), 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return 10;
+}
+
+export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description = "Aviation humor, clear skies, text-only comms.", historyLimit }: ChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [draft, setDraft] = useState("");
@@ -32,6 +47,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
 
   const canSend = draft.trim().length > 0 && !isBusy;
   const streamEndpoint = useMemo(() => `${apiBaseUrl.replace(/\/$/, "")}/api/chat/stream`, [apiBaseUrl]);
+  const maxHistory = useMemo(() => resolveHistoryLimit(historyLimit), [historyLimit]);
 
   async function sendMessage() {
     const text = draft.trim();
@@ -40,6 +56,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
     }
 
     const nextMessages = [...messages, { role: "user" as const, content: text }];
+    const outboundMessages = nextMessages.slice(-maxHistory);
     setMessages(nextMessages);
     setDraft("");
     setIsBusy(true);
@@ -48,7 +65,7 @@ export function ChatBubble({ apiBaseUrl, title = "Agent Plane Talk", description
       const response = await fetch(streamEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: outboundMessages }),
       });
 
       if (!response.ok) {

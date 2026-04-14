@@ -88,50 +88,49 @@ def _heartbeat_response() -> str:
     )
 
 
-def _get_env(name: str) -> str:
-    value = os.getenv(name, "").strip()
-    if not value:
-        raise ValueError(f"Missing required environment variable: {name}")
-    return value
-
-
 def _geocode_city_state(city: str, state: str) -> tuple[float, float, str]:
-    api_key = _get_env("LATLNG_API_KEY")
-    base_url = os.getenv("LATLNG_BASE_URL", "https://api.latlng.work/api").strip()
-    query = f"{city}, {state}, USA"
+    base_url = os.getenv("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org/search").strip()
+    geocoder_user_agent = os.getenv(
+        "NOMINATIM_USER_AGENT",
+        os.getenv("NWS_USER_AGENT", "simple-chat-bubble-weather-mcp/1.0"),
+    ).strip()
 
     response = requests.get(
         base_url,
-        params={"q": query, "limit": 1, "lang": "en"},
-        headers={"X-Api-Key": api_key, "Accept": "application/json"},
+        params={
+            "city": city,
+            "state": state,
+            "country": "USA",
+            "format": "jsonv2",
+            "limit": 1,
+        },
+        headers={"User-Agent": geocoder_user_agent, "Accept": "application/json"},
         timeout=20,
     )
     if response.status_code != 200:
         raise ValueError(f"Geocoding failed ({response.status_code}): {response.text[:250]}")
 
     payload = response.json()
-    features = payload.get("features")
-    if not isinstance(features, list) or not features:
+    if not isinstance(payload, list) or not payload:
         raise ValueError(f"No geocoding results for '{city}, {state}'.")
 
-    feature = features[0]
-    geometry = feature.get("geometry", {}) if isinstance(feature, dict) else {}
-    coordinates = geometry.get("coordinates", []) if isinstance(geometry, dict) else []
-
-    if not isinstance(coordinates, list) or len(coordinates) < 2:
+    first = payload[0]
+    if not isinstance(first, dict):
         raise ValueError("Invalid geocoding response: missing coordinates.")
 
-    lon = float(coordinates[0])
-    lat = float(coordinates[1])
+    lat_raw = first.get("lat")
+    lon_raw = first.get("lon")
+    if lat_raw is None or lon_raw is None:
+        raise ValueError("Invalid geocoding response: missing coordinates.")
 
-    properties = feature.get("properties", {}) if isinstance(feature, dict) else {}
-    resolved_name = properties.get("name") if isinstance(properties, dict) else None
-    resolved_state = properties.get("state") if isinstance(properties, dict) else None
-    location_label = (
-        f"{resolved_name}, {resolved_state}"
-        if resolved_name and resolved_state
-        else f"{city}, {state}"
-    )
+    try:
+        lat = float(lat_raw)
+        lon = float(lon_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid geocoding response: non-numeric coordinates.") from exc
+
+    display_name = first.get("display_name")
+    location_label = display_name if isinstance(display_name, str) and display_name.strip() else f"{city}, {state}"
 
     return lat, lon, location_label
 

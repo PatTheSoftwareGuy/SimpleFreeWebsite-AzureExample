@@ -20,8 +20,8 @@ It is designed for city/state weather lookups.
 
 ## Environment Variables
 
-- `LATLNG_API_KEY` (required): server key for https://api.latlng.work
-- `LATLNG_BASE_URL` (optional): defaults to `https://api.latlng.work/api`
+- `NOMINATIM_BASE_URL` (optional): defaults to `https://nominatim.openstreetmap.org/search`
+- `NOMINATIM_USER_AGENT` (optional but recommended): user agent for Nominatim calls
 - `NWS_USER_AGENT` (optional but recommended): user agent for weather.gov requests
 
 ## Local Run
