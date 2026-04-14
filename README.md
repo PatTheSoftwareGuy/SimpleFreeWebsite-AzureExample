@@ -268,7 +268,7 @@ The table below lists environment variables used by this repo, whether they are 
 | `AIHORDE_BASE_URL` | No | `https://oai.aihorde.net/v1` | backend | Base URL for OpenAI-compatible chat API endpoint. |
 | `AIHORDE_FALLBACK_MODEL` | No | unset | backend | Preferred fallback model when the requested model is unavailable (HTTP 406). |
 | `AIHORDE_HTTP_TIMEOUT_SECONDS` | No | `60` | backend | Timeout for direct AI Horde HTTP calls. |
-| `AIHORDE_MODEL` | No | Prompty/Bicep default (for example `koboldcpp/LFM2.5-1.2B-Instruct`) | backend | Model identifier sent to chat completions. |
+| `AIHORDE_MODEL` | No | Prompty/Bicep default (for example `koboldcpp/Ministral-3-8B-Instruct-2512`) | backend | Model identifier sent to chat completions. |
 | `AZURE_WEATHER_WEBAPP_URL` | No | `http://localhost:7071` (Prompty default) | backend Prompty MCP config | Base URL for the weather MCP server (`/api/mcp` is appended in Prompty). |
 | `DISABLE_MODEL_TOOL_CALLING` | No | unset (`false`) | backend | Disables model-native tool calling when set to truthy (`1`, `true`, `yes`, `on`). |
 | `MCP_HTTP_TIMEOUT_SECONDS` | No | `20` | backend | Timeout for MCP JSON-RPC HTTP calls (`tools/list`, `tools/call`). |
@@ -297,7 +297,7 @@ These are set in azd env and consumed during provisioning/deploy.
 | Variable | Required | Default | Used by | Purpose |
 |---|---|---|---|---|
 | `AIHORDE_API_KEY` | Yes | None | `infra/main.parameters.json`, CI | Injected into chat web app settings for runtime model access. |
-| `AIHORDE_MODEL` | No | `koboldcpp/LFM2.5-1.2B-Instruct` | Bicep output/app setting, CI | Model name provisioned into app settings. |
+| `AIHORDE_MODEL` | No | `koboldcpp/Ministral-3-8B-Instruct-2512` | Bicep output/app setting, CI | Model name provisioned into app settings. |
 | `APP_SERVICE_SKU_NAME` | Yes | None | `infra/main.parameters.json` | App Service plan SKU (`F1`, `B1`, `B3`). |
 | `AZURE_LOCATION` | Yes | None | `infra/main.parameters.json`, CI | Azure region for resources (for example `eastus`). |
 
@@ -306,7 +306,7 @@ These are set in azd env and consumed during provisioning/deploy.
 | Variable/Secret | Required | Default | Used by | Purpose |
 |---|---|---|---|---|
 | `AIHORDE_API_KEY` (secret) | Yes (for deploy) | None | azd env setup in CI | Secret API key passed into azd env before provision/deploy. |
-| `AIHORDE_MODEL` (variable) | No | `koboldcpp/LFM2.5-1.2B-Instruct` in workflow | azd env setup in CI | Optional model override in CI. |
+| `AIHORDE_MODEL` (variable) | No | `koboldcpp/Ministral-3-8B-Instruct-2512` in workflow | azd env setup in CI | Optional model override in CI. |
 | `AZURE_CLIENT_ID` (variable) | Yes (for deploy) | None | `azure/login` | OIDC client ID for Azure login. |
 | `AZURE_LOCATION` (variable) | No | `eastus` in workflow | azd env setup in CI | Region used when CI initializes azd env values. |
 | `AZURE_SUBSCRIPTION_ID` (variable) | Yes (for deploy) | None | `azure/login` | Azure subscription ID for deployment scope. |
