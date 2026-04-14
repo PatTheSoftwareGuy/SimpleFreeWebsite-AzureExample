@@ -40,7 +40,7 @@ param githubBranch string = 'main'
 param aiHordeApiKey string
 
 @description('AI Horde model identifier used by the chat backend.')
-param aiHordeModel string = 'koboldcpp/LFM2.5-1.2B-Instruct'
+param aiHordeModel string = 'koboldcpp/Ministral-3-8B-Instruct-2512'
 
 @description('Nominatim base URL used by the Weather MCP Web App for forward geocoding requests.')
 param nominatimBaseUrl string = 'https://nominatim.openstreetmap.org/search'
