@@ -5,10 +5,10 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-import azure.functions as func
+from flask import Flask, Response, jsonify, request
 import requests
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = Flask(__name__)
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 WEATHER_TOOL_NAME = "get_weather_forecast"
@@ -83,7 +83,7 @@ def _heartbeat_response() -> str:
     return (
         "Heartbeat OK\n"
         f"timestamp_utc: {timestamp}\n"
-        "service: weather-mcp-function\n"
+        "service: weather-mcp-webapp\n"
         "status: healthy"
     )
 
@@ -243,63 +243,54 @@ def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     raise ValueError(f"Unknown tool: {name}")
 
 
-def _http_success(payload: dict[str, Any], status_code: int = 200) -> func.HttpResponse:
-    return func.HttpResponse(
-        json.dumps(payload),
-        status_code=status_code,
-        mimetype="application/json",
-    )
+def _json_response(payload: dict[str, Any], status_code: int = 200) -> Response:
+    return Response(json.dumps(payload), status=status_code, mimetype="application/json")
 
 
-def _http_error(message: str, status_code: int = 400) -> func.HttpResponse:
-    return _http_success({"error": message}, status_code=status_code)
-
-
-@app.route(route="heartbeat", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
-def heartbeat_http(req: func.HttpRequest) -> func.HttpResponse:
+@app.get("/api/heartbeat")
+def heartbeat_http() -> Response:
     try:
         result = _run_tool(HEARTBEAT_TOOL_NAME, {})
-        return _http_success(result)
+        return _json_response(result)
     except ValueError as exc:
-        return _http_error(str(exc), status_code=400)
+        return _json_response({"error": str(exc)}, status_code=400)
     except requests.RequestException as exc:
-        return _http_error(f"Upstream request failed: {exc}", status_code=502)
+        return _json_response({"error": f"Upstream request failed: {exc}"}, status_code=502)
     except Exception as exc:  # noqa: BLE001
-        return _http_error(f"Internal error: {exc}", status_code=500)
+        return _json_response({"error": f"Internal error: {exc}"}, status_code=500)
 
 
-@app.route(route="weather", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
-def weather_http(req: func.HttpRequest) -> func.HttpResponse:
+@app.get("/api/weather")
+def weather_http() -> Response:
     arguments = {
-        "city": req.params.get("city", ""),
-        "state": req.params.get("state", ""),
-        "days": req.params.get("days", "3"),
+        "city": request.args.get("city", ""),
+        "state": request.args.get("state", ""),
+        "days": request.args.get("days", "3"),
     }
 
     try:
         result = _run_tool(WEATHER_TOOL_NAME, arguments)
-        return _http_success(result)
+        return _json_response(result)
     except ValueError as exc:
-        return _http_error(str(exc), status_code=400)
+        return _json_response({"error": str(exc)}, status_code=400)
     except requests.RequestException as exc:
-        return _http_error(f"Upstream request failed: {exc}", status_code=502)
+        return _json_response({"error": f"Upstream request failed: {exc}"}, status_code=502)
     except Exception as exc:  # noqa: BLE001
-        return _http_error(f"Internal error: {exc}", status_code=500)
+        return _json_response({"error": f"Internal error: {exc}"}, status_code=500)
 
 
-@app.route(route="mcp", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def mcp(req: func.HttpRequest) -> func.HttpResponse:
+@app.post("/api/mcp")
+def mcp() -> Response:
     request_id: Any = None
 
-    try:
-        body = req.get_json()
-    except ValueError:
+    body = request.get_json(silent=True)
+    if body is None:
         error = _jsonrpc_error(None, -32700, "Parse error: invalid JSON body.")
-        return func.HttpResponse(json.dumps(error), status_code=200, mimetype="application/json")
+        return _json_response(error)
 
     if not isinstance(body, dict):
         error = _jsonrpc_error(None, -32600, "Invalid Request: expected a JSON object.")
-        return func.HttpResponse(json.dumps(error), status_code=200, mimetype="application/json")
+        return _json_response(error)
 
     request_id = body.get("id")
     method = body.get("method")
@@ -317,7 +308,7 @@ def mcp(req: func.HttpRequest) -> func.HttpResponse:
                     "tools": {},
                 },
                 "serverInfo": {
-                    "name": "weather-mcp-function",
+                    "name": "weather-mcp-webapp",
                     "version": "1.0.0",
                 },
             }
@@ -354,4 +345,9 @@ def mcp(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as exc:  # noqa: BLE001
         response = _jsonrpc_error(request_id, -32603, f"Internal error: {exc}")
 
-    return func.HttpResponse(json.dumps(response), status_code=200, mimetype="application/json")
+    return _json_response(response)
+
+
+@app.get("/")
+def root() -> Response:
+    return jsonify({"status": "ok", "service": "weather-mcp-webapp"})

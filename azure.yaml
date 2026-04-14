@@ -14,9 +14,9 @@ services:
     resourceName: ${AZURE_WEBAPP_NAME}
   weather-mcp:
     project: function
-    host: function
+    host: appservice
     language: py
-    resourceName: ${AZURE_FUNCTIONAPP_NAME}
+    resourceName: ${AZURE_WEATHER_WEBAPP_NAME}
 
 hooks:
   prepackage:

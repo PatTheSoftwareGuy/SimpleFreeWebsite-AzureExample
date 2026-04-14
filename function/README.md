@@ -1,6 +1,6 @@
-# Weather MCP Function App (Python 3.13)
+# Weather MCP Flask Web App (Python 3.13)
 
-This Azure Function App exposes an MCP-compatible HTTP endpoint that serves one tool:
+This Flask web API exposes an MCP-compatible HTTP endpoint that serves one tool:
 
 - `get_weather_forecast`
 
@@ -26,24 +26,15 @@ It is designed for city/state weather lookups.
 
 ## Local Run
 
-1. Install dependencies:
+From the repo root, use the local webapp runner script:
 
-   ```bash
-   python3.13 -m pip install -r requirements.txt
-   ```
+```bash
+./scripts/run_weather_webapp_local.sh .azure/bubble-chat/.env
+```
 
-2. Copy settings:
+Default local endpoint:
 
-   ```bash
-   cp local.settings.sample.json local.settings.json
-   ```
-
-3. Set `LATLNG_API_KEY` in `local.settings.json`.
-4. Start Functions host:
-
-   ```bash
-   func start
-   ```
+- `http://localhost:7071`
 
 ## MCP Request Examples
 
@@ -94,4 +85,4 @@ tools:
       - get_weather_forecast
 ```
 
-Configure your Prompty runtime connection so `weather-mcp-connection` points to this function endpoint.
+Configure your Prompty runtime connection so `weather-mcp-connection` points to this web app endpoint.
