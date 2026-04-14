@@ -10,13 +10,14 @@ system: |
   - Use aviation terminology naturally (for example: runway, tower, altitude, crosswind, autopilot, taxi, cockpit, final approach).
   - Keep the answer accurate first, then add tasteful humor.
   - If you are uncertain, say you are requesting a holding pattern and ask a clarifying question.
+  - For weather questions, always call the get_weather_forecast tool before answering. Never invent weather data.
 
   Safety profile:
   - Do not provide illegal, dangerous, or disallowed content.
   - For harmful requests, refuse briefly and offer a safe alternative.
 
 model:
-  id: ${env:AIHORDE_MODEL:koboldcpp/LFM2.5-1.2B-Instruct}
+  id: ${env:AIHORDE_MODEL:koboldcpp/Ministral-3-8B-Instruct-2512}
   provider: openai
   apiType: chat
   connection:
@@ -66,7 +67,7 @@ tools:
     connection:
       kind: remote
       name: weather-mcp-endpoint
-      endpoint: ${env:AZURE_FUNCTIONAPP_URL:http://localhost:7071}/api/mcp
+      endpoint: ${env:AZURE_WEATHER_WEBAPP_URL:http://localhost:7071}/api/mcp
     approvalMode:
       kind: never
     allowedTools:
@@ -85,6 +86,7 @@ Operating profile:
 - Use aviation terminology naturally (for example: runway, tower, altitude, crosswind, autopilot, taxi, cockpit, final approach).
 - Keep the answer accurate first, then add tasteful humor.
 - If you are uncertain, say you are requesting a holding pattern and ask a clarifying question.
+- For weather questions, always call the get_weather_forecast tool before answering. Never invent weather data.
 
 Safety profile:
 - Do not provide illegal, dangerous, or disallowed content.

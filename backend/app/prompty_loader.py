@@ -17,6 +17,7 @@ class PromptProfile:
     few_shot_messages: list[dict[str, str]]
     model: dict[str, Any]
     tools: list[dict[str, Any]]
+    mcp_servers: list[dict[str, Any]]
     max_iterations: int
 
 
@@ -200,6 +201,45 @@ def _extract_tools(metadata: dict[str, Any]) -> list[dict[str, Any]]:
     return tools
 
 
+def _extract_mcp_servers(metadata: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_tools = metadata.get("tools")
+    if not isinstance(raw_tools, list):
+        return []
+
+    servers: list[dict[str, Any]] = []
+    for raw_tool in raw_tools:
+        if not isinstance(raw_tool, dict):
+            continue
+
+        resolved_tool = _resolve_value_templates(raw_tool)
+        kind = str(resolved_tool.get("kind", "")).strip().lower()
+        if kind != "mcp":
+            continue
+
+        connection = resolved_tool.get("connection") if isinstance(resolved_tool.get("connection"), dict) else {}
+        endpoint = str(connection.get("endpoint", "")).strip()
+        if not endpoint:
+            continue
+
+        allowed_tools = resolved_tool.get("allowedTools")
+        if isinstance(allowed_tools, list):
+            allowed = [str(name).strip() for name in allowed_tools if str(name).strip()]
+        else:
+            allowed = []
+
+        servers.append(
+            {
+                "name": str(resolved_tool.get("name", "")).strip() or str(resolved_tool.get("serverName", "")).strip(),
+                "server_name": str(resolved_tool.get("serverName", "")).strip(),
+                "server_description": str(resolved_tool.get("serverDescription", "")).strip(),
+                "endpoint": endpoint,
+                "allowed_tools": allowed,
+            }
+        )
+
+    return servers
+
+
 def load_prompty(path: str | Path) -> PromptProfile:
     prompty_path = Path(path)
     raw_text = prompty_path.read_text(encoding="utf-8")
@@ -211,6 +251,7 @@ def load_prompty(path: str | Path) -> PromptProfile:
     few_shot_messages = _extract_few_shots(metadata)
     model = _extract_model(metadata)
     tools = _extract_tools(metadata)
+    mcp_servers = _extract_mcp_servers(metadata)
 
     raw_max_iterations = metadata.get("agent", {}).get("maxIterations") if isinstance(metadata.get("agent"), dict) else None
     if isinstance(raw_max_iterations, int) and raw_max_iterations > 0:
@@ -225,5 +266,6 @@ def load_prompty(path: str | Path) -> PromptProfile:
         few_shot_messages=few_shot_messages,
         model=model,
         tools=tools,
+        mcp_servers=mcp_servers,
         max_iterations=max_iterations,
     )

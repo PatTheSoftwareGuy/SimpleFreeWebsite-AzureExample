@@ -54,6 +54,8 @@ param nwsUserAgent string = 'simple-chat-bubble-weather-mcp/1.0 (contact: admin@
 var enableGithubFederation = !empty(githubOrg) && !empty(githubRepo)
 var isFreeSku = appServiceSkuName == 'F1'
 var appServiceSkuTier = appServiceSkuName == 'F1' ? 'Free' : 'Basic'
+var webAppUrl = 'https://${appName}.azurewebsites.net'
+var weatherWebAppUrl = 'https://${weatherWebAppName}.azurewebsites.net/'
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: appServicePlanName
@@ -133,6 +135,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'AIHORDE_MODEL'
           value: aiHordeModel
         }
+        {
+          name: 'AZURE_WEATHER_WEBAPP_URL'
+          value: weatherWebAppUrl
+        }
       ]
     }
     httpsOnly: true
@@ -151,7 +157,7 @@ resource weatherWebApp 'Microsoft.Web/sites@2024-04-01' = {
       appCommandLine: 'gunicorn --bind=0.0.0.0:8000 function_app:app'
       cors: {
         allowedOrigins: [
-          'https://${webApp.properties.defaultHostName}'
+          webAppUrl
           'https://portal.azure.com'
         ]
       }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +10,10 @@ from flask import Flask, Response, jsonify, request
 import requests
 
 app = Flask(__name__)
+
+if not app.logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+app.logger.setLevel(logging.INFO)
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 WEATHER_TOOL_NAME = "get_weather_forecast"
@@ -200,8 +205,10 @@ def _build_forecast_text(city: str, state: str, days: int) -> str:
 
 
 def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    app.logger.info("tool_call_start tool=%s args=%s", name, arguments)
+
     if name == HEARTBEAT_TOOL_NAME:
-        return {
+        result = {
             "content": [
                 {
                     "type": "text",
@@ -209,6 +216,8 @@ def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 }
             ]
         }
+        app.logger.info("tool_call_success tool=%s", name)
+        return result
 
     if name == WEATHER_TOOL_NAME:
         city = str(arguments.get("city", "")).strip()
@@ -230,7 +239,7 @@ def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 
         forecast_text = _build_forecast_text(city=city, state=state, days=days)
 
-        return {
+        result = {
             "content": [
                 {
                     "type": "text",
@@ -238,7 +247,10 @@ def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 }
             ]
         }
+        app.logger.info("tool_call_success tool=%s city=%s state=%s days=%s", name, city, state, days)
+        return result
 
+    app.logger.warning("tool_call_unknown tool=%s", name)
     raise ValueError(f"Unknown tool: {name}")
 
 
@@ -248,14 +260,19 @@ def _json_response(payload: dict[str, Any], status_code: int = 200) -> Response:
 
 @app.get("/api/heartbeat")
 def heartbeat_http() -> Response:
+    app.logger.info("http_request_start endpoint=/api/heartbeat method=GET")
     try:
         result = _run_tool(HEARTBEAT_TOOL_NAME, {})
+        app.logger.info("http_request_success endpoint=/api/heartbeat method=GET")
         return _json_response(result)
     except ValueError as exc:
+        app.logger.warning("http_request_failure endpoint=/api/heartbeat method=GET status=400 error=%s", exc)
         return _json_response({"error": str(exc)}, status_code=400)
     except requests.RequestException as exc:
+        app.logger.warning("http_request_failure endpoint=/api/heartbeat method=GET status=502 error=%s", exc)
         return _json_response({"error": f"Upstream request failed: {exc}"}, status_code=502)
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("http_request_failure endpoint=/api/heartbeat method=GET status=500")
         return _json_response({"error": f"Internal error: {exc}"}, status_code=500)
 
 
@@ -267,14 +284,25 @@ def weather_http() -> Response:
         "days": request.args.get("days", "3"),
     }
 
+    app.logger.info(
+        "http_request_start endpoint=/api/weather method=GET city=%s state=%s days=%s",
+        arguments["city"],
+        arguments["state"],
+        arguments["days"],
+    )
+
     try:
         result = _run_tool(WEATHER_TOOL_NAME, arguments)
+        app.logger.info("http_request_success endpoint=/api/weather method=GET")
         return _json_response(result)
     except ValueError as exc:
+        app.logger.warning("http_request_failure endpoint=/api/weather method=GET status=400 error=%s", exc)
         return _json_response({"error": str(exc)}, status_code=400)
     except requests.RequestException as exc:
+        app.logger.warning("http_request_failure endpoint=/api/weather method=GET status=502 error=%s", exc)
         return _json_response({"error": f"Upstream request failed: {exc}"}, status_code=502)
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("http_request_failure endpoint=/api/weather method=GET status=500")
         return _json_response({"error": f"Internal error: {exc}"}, status_code=500)
 
 
@@ -283,21 +311,26 @@ def mcp() -> Response:
     request_id: Any = None
 
     body = request.get_json(silent=True)
+    app.logger.info("http_request_start endpoint=/api/mcp method=POST")
     if body is None:
+        app.logger.warning("http_request_failure endpoint=/api/mcp method=POST status=400 reason=invalid_json")
         error = _jsonrpc_error(None, -32700, "Parse error: invalid JSON body.")
         return _json_response(error)
 
     if not isinstance(body, dict):
+        app.logger.warning("http_request_failure endpoint=/api/mcp method=POST status=400 reason=invalid_request_type")
         error = _jsonrpc_error(None, -32600, "Invalid Request: expected a JSON object.")
         return _json_response(error)
 
     request_id = body.get("id")
     method = body.get("method")
     params = body.get("params", {})
+    app.logger.info("mcp_method_received method=%s request_id=%s", method, request_id)
 
     if not isinstance(method, str):
         error = _jsonrpc_error(request_id, -32600, "Invalid Request: missing method.")
-        return func.HttpResponse(json.dumps(error), status_code=200, mimetype="application/json")
+        app.logger.warning("mcp_method_failure method=unknown request_id=%s error=missing_method", request_id)
+        return _json_response(error)
 
     try:
         if method == "initialize":
@@ -312,12 +345,14 @@ def mcp() -> Response:
                 },
             }
             response = _jsonrpc_result(request_id, result)
+            app.logger.info("mcp_method_success method=initialize request_id=%s", request_id)
 
         elif method == "tools/list":
             response = _jsonrpc_result(
                 request_id,
                 {"tools": [_weather_tool_schema(), _heartbeat_tool_schema()]},
             )
+            app.logger.info("mcp_method_success method=tools/list request_id=%s", request_id)
 
         elif method == "tools/call":
             if not isinstance(params, dict):
@@ -333,17 +368,23 @@ def mcp() -> Response:
 
             tool_result = _run_tool(name, arguments)
             response = _jsonrpc_result(request_id, tool_result)
+            app.logger.info("mcp_method_success method=tools/call request_id=%s tool=%s", request_id, name)
 
         else:
             response = _jsonrpc_error(request_id, -32601, f"Method not found: {method}")
+            app.logger.warning("mcp_method_failure method=%s request_id=%s error=method_not_found", method, request_id)
 
     except ValueError as exc:
+        app.logger.warning("mcp_method_failure method=%s request_id=%s error=%s", method, request_id, exc)
         response = _jsonrpc_error(request_id, -32000, str(exc))
     except requests.RequestException as exc:
+        app.logger.warning("mcp_method_failure method=%s request_id=%s upstream_error=%s", method, request_id, exc)
         response = _jsonrpc_error(request_id, -32001, f"Upstream request failed: {exc}")
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("mcp_method_failure method=%s request_id=%s internal_error", method, request_id)
         response = _jsonrpc_error(request_id, -32603, f"Internal error: {exc}")
 
+    app.logger.info("http_request_end endpoint=/api/mcp method=POST")
     return _json_response(response)
 
 

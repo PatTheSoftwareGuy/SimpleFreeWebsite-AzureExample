@@ -14,3 +14,5 @@ def test_load_prompty_reads_name_and_prompt() -> None:
     assert profile.max_iterations == 8
     assert len(profile.few_shot_messages) >= 2
     assert any(tool["function"]["name"] == "lookup_aviation_term" for tool in profile.tools)
+    assert len(profile.mcp_servers) >= 1
+    assert any(server["endpoint"].endswith("/api/mcp") for server in profile.mcp_servers)
